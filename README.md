@@ -1,4 +1,14 @@
-# opa-perf-issue
+# rego-perf-tuning
+
+In this lab, I wrestle a performance issue encountered when traversing the AST of
+a large (~1900 LOC) dummy policy (`p.rego`) in order to extract vars from rule
+bodies. The code found in `ast1.rego` was my first attempt, which I consider to
+have used idiomatic constructs. The performance was however abysmal, clocking in
+evaluation on over 17 seconds! Not good for my purpose. What to do?
+
+Each incremental attempt to improve the performance of evaluation is here provided
+in `astX.rego`, where each increment is an improvement over the last. Each policy
+may be evaluated using the following series of commands:
 
 ```shell
 time opa parse --format json --json-include locations p.rego | \
