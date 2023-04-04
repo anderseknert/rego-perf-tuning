@@ -61,7 +61,6 @@ _find_every_vars(path, value) := var if {
 
 _find_vars(path, value, last) := _find_assign_vars(path, value) if {
 	last == "terms"
-
 	value[0].type == "ref"
 	value[0].value[0].type == "var"
 	value[0].value[0].value == "assign"
@@ -69,13 +68,11 @@ _find_vars(path, value, last) := _find_assign_vars(path, value) if {
 
 _find_vars(path, value, last) := _find_some_in_decl_vars(path, value) if {
 	last == "symbols"
-
 	value[0].type == "call"
 }
 
 _find_vars(path, value, last) := _find_some_decl_vars(path, value) if {
 	last == "symbols"
-
 	value[0].type != "call"
 }
 
@@ -89,7 +86,7 @@ _find_vars(path, value, last) := _find_every_vars(path, value) if {
 #   traverses all nodes under provided path (using `walk`), and returns an array with
 #   all variables declared via assignment (:=), `some` or `every`
 find_vars(path) := [var |
-	[_path, _value] := walk(path)
+	 walk(path, [_path, _value])
 
 	some var in _find_vars(_path, _value, _path[count(_path) - 1])
 ]

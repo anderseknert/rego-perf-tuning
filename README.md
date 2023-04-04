@@ -4,7 +4,7 @@ In this lab, I wrestle a performance issue encountered when traversing the AST o
 a large (~1900 LOC) dummy policy (`p.rego`) in order to extract vars from rule
 bodies. The code found in `ast1.rego` was my first attempt, which I consider to
 have used idiomatic constructs. The performance was however abysmal, clocking in
-evaluation on over 17 seconds! Not good for my purpose. What to do?
+evaluation at over 17 seconds! Not good for my purpose. What to do?
 
 Each incremental attempt to improve the performance of evaluation is here provided
 in `astX.rego`, where each increment is an improvement over the last. Each policy
@@ -15,7 +15,10 @@ time opa parse --format json --json-include locations p.rego | \
 opa eval -I -d astX.rego --profile --format pretty '_ = data.regal.ast.find_vars(input)'
 ```
 
-**ast1.rego** (original)
+## ast1.rego
+
+Original policy. 17 seconds to evaluate! Where do we start?
+
 ```
 +--------------+----------+----------+--------------+
 |     TIME     | NUM EVAL | NUM REDO |   LOCATION   |
@@ -35,7 +38,12 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.01s system
 opa eval -I -d ast.rego --profile --format pretty   17.18s user 0.29s system 230% cpu 7.593 total
 ```
 
-**ast2.rego** (one less function call)
+## ast2.rego
+
+We could try removing a function call, I suppose. It made the code slightly more readable,
+but not readable enough to wait 17 seconds. 3.5 seconds saved. That seems like a lot for one simple
+function call!
+
 ```
 +--------------+----------+----------+---------------+
 |     TIME     | NUM EVAL | NUM REDO |   LOCATION    |
@@ -55,9 +63,12 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.02s system
 opa eval -I -d ast2.rego --profile --format pretty   13.67s user 0.23s system 229% cpu 6.050 total
 ```
 
-3,5 seconds saved.
+## ast3.rego
 
-**ast3.rego** (inlined check of last path element)
+Alright, so functions are expensive. Let's do away with the `is_terms` and `is_symbols` functions too
+then and inline those assertions in the other functions evaluated. Another 3 seconds shaved off!
+Functions are apparently _really_ expensive. We no longer have any single line taking more than a
+second of evaluation, but 10 seconds in total is still way too slow.
 
 ```
 +--------------+----------+----------+---------------+
@@ -78,9 +89,10 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.01s system
 opa eval -I -d ast3.rego --profile --format pretty   10.37s user 0.17s system 216% cpu 4.873 total
 ````
 
-Another 3 seconds shaved off!
+## ast4.rego
 
-**ast4.rego** (simplify `every` branch to a single function)
+The scan for vars in `every` constructs could be simplified from two functions to a single one.
+Another second saved.
 
 ```
 +--------------+----------+----------+--------------+
@@ -101,9 +113,11 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.02s system
 opa eval -I -d ast4.rego --profile --format pretty   9.37s user 0.16s system 216% cpu 4.409 total
 ```
 
-Only 1 second, but fair enough.
+## ast5.rego
 
-**ast5.rego** (move **all** conditional to body of first function)
+Calling each function and have the conditions in their body determine which one would evaluate seemed
+reasonable at first, but knowing now that functions are expensive, what if we moved **all** conditions
+to the body of the calling function, only calling them conditionally? 5 seconds down. Whoa!
 
 ```
 +--------------+----------+----------+--------------+
@@ -124,9 +138,9 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.02s system
 opa eval -I -d ast5.rego --profile --format pretty   4.63s user 0.09s system 213% cpu 2.207 total
 ```
 
-5 seconds down, whoa!
+## ast6.rego
 
-**ast6.rego** (use `else` to avoid extra calls if successful)
+Perhaps we could use `else` to avoid extra calls if successful? Nah, that did nothing.
 
 ```
 +--------------+----------+----------+--------------+
@@ -147,27 +161,49 @@ opa parse --format json --json-include locations p.rego  0.08s user 0.01s system
 opa eval -I -d ast6.rego --profile --format pretty   4.62s user 0.09s system 214% cpu 2.196 total
 ````
 
-No impact. I supposedly the assertions are cheap enough already.
+## ast7.rego
 
-**ast7.rego** (revert `else` change, move "last" check to outer loop and pass in args)
+Revert the useless `else` change. But what if we moved the check for the last element of the path array
+to the outer loop, and pass it as an argument to subsequent functions? Oh, 3.4 seconds down, and we're
+now close to below a second. The major time sink now is line 91, and there's really not much we can do
+to improve that furher. Breaking it apart into separate statementes reveal the the one most expensive
+operation is now doing _minus 1_ on the length of the path array. Interesting! I suppose this could be
+tuned further, but we'd have to move over to the OPA code in order to do so.
 
 ```
 +--------------+----------+----------+--------------+
 |     TIME     | NUM EVAL | NUM REDO |   LOCATION   |
 +--------------+----------+----------+--------------+
-| 353.57539ms  | 208453   | 157802   | ast7.rego:94 |
-| 170.063325ms | 51912    | 103822   | ast7.rego:92 |
-| 8.321999ms   | 3        | 3        | input        |
-| 4.366569ms   | 1081     | 1081     | ast7.rego:63 |
-| 1.916717ms   | 360      | 360      | ast7.rego:62 |
-| 1.616987ms   | 1081     | 180      | ast7.rego:84 |
-| 1.530852ms   | 540      | 540      | ast7.rego:13 |
-| 1.451758ms   | 360      | 270      | ast7.rego:12 |
-| 1.359224ms   | 1081     | 540      | ast7.rego:65 |
-| 1.252534ms   | 1081     | 1081     | ast7.rego:83 |
+| 343.084291ms | 208453   | 157802   | ast7.rego:91 |
+| 170.187852ms | 51912    | 103822   | ast7.rego:89 |
+| 8.731541ms   | 3        | 3        | input        |
+| 4.425732ms   | 1081     | 1081     | ast7.rego:63 |
+| 1.919579ms   | 360      | 360      | ast7.rego:62 |
+| 1.629889ms   | 1081     | 180      | ast7.rego:81 |
+| 1.518285ms   | 360      | 270      | ast7.rego:12 |
+| 1.492522ms   | 540      | 540      | ast7.rego:13 |
+| 1.476403ms   | 1081     | 540      | ast7.rego:64 |
+| 1.184156ms   | 360      | 360      | ast7.rego:59 |
 +--------------+----------+----------+--------------+
 opa parse --format json --json-include locations p.rego  0.08s user 0.01s system 129% cpu 0.075 total
 opa eval -I -d ast7.rego --profile --format pretty   1.27s user 0.03s system 181% cpu 0.718 total
 ```
 
-Gooooood damn! Almost 3,5 down and we're now almost under a second.
+## Observations
+
+`walk(path, [_path, _value])` seems to consistently perform slightly better (5-10 ms) than
+`[_path, _value] := walk(path)`. I have no idea why.
+
+Another interesting observation: the "pattern matching" construct one may use when calling
+functions performs much worse compared to making the comparison in the function body.
+
+## Summary
+
+Going from 17 seconds evaluation time to 1 feels is quite an improvement. The code got a bit less
+readable, but not terribly so. Lessons learnt:
+
+- Calling functions in a hot path is _expensive_
+- Moving conditional checks as far out of the loop as possible pays off
+- This is nowhere near a representative use case, but an interesting excersice nonetheless
+
+But.. could we improve the performance of calling Rego functions?
