@@ -207,3 +207,48 @@ readable, but not terribly so. Lessons learnt:
 - This is nowhere near a representative use case, but an interesting excersice nonetheless
 
 But.. could we improve the performance of calling Rego functions?
+
+## Styra Load
+
+How does Styra Load fare here? Its memory savings are quite exceptional, but that doesn't
+necessarly mean faster in this context. Load uses an entirely different VM for evaluation, so the
+performance characteristics compared to OPA are reasonably different too. And wow, running the
+unoptimized `ast1.rego` file replacing OPA with Load shows 13 seconds saved!
+
+```
++----------------------------------+------------+
+|              METRIC              |   VALUE    |
++----------------------------------+------------+
+| counter_regovm_eval_instructions | 15614140   |
+| timer_rego_load_files_ns         | 568250     |
+| timer_rego_module_compile_ns     | 2403875    |
+| timer_rego_module_parse_ns       | 485834     |
+| timer_rego_query_compile_ns      | 63458      |
+| timer_rego_query_parse_ns        | 34667      |
+| timer_regovm_eval_ns             | 1965822292 |
++----------------------------------+------------+
+opa parse --format json --json-include locations p.rego  0.08s user 0.01s system 128% cpu 0.074 total
+load eval -I -d ast1.rego --profile --format pretty   3.44s user 0.07s system 153% cpu 2.286 total
+```
+
+Running the manually optimized `ast7.rego`:
+
+```
++----------------------------------+-----------+
+|              METRIC              |   VALUE   |
++----------------------------------+-----------+
+| counter_regovm_eval_instructions | 3014269   |
+| timer_rego_load_files_ns         | 495125    |
+| timer_rego_module_compile_ns     | 1816916   |
+| timer_rego_module_parse_ns       | 408625    |
+| timer_rego_query_compile_ns      | 54416     |
+| timer_rego_query_parse_ns        | 34500     |
+| timer_regovm_eval_ns             | 507123542 |
++----------------------------------+-----------+
+opa parse --format json --json-include locations p.rego  0.08s user 0.01s system 127% cpu 0.073 total
+load eval -I -d ast7.rego --profile --format pretty   1.05s user 0.06s system 129% cpu 0.864 total
+```
+
+We're now _almost_ below a second, but not quite. Styra Load is faster here too, but at this point
+it's probably difficult to shave off more than milliseconds, as by the end of the day, we do have a ton
+of instructions that'll need to be executed regardless of how it's done.
