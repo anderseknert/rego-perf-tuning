@@ -210,10 +210,12 @@ But.. could we improve the performance of calling Rego functions?
 
 ## Styra Load
 
-How does Styra Load fare here? Its memory savings are quite exceptional, but that doesn't
-necessarly mean faster in this context. Load uses an entirely different VM for evaluation, so the
-performance characteristics compared to OPA are reasonably different too. And wow, running the
-unoptimized `ast1.rego` file replacing OPA with Load shows 13 seconds saved!
+How does [Styra Load](https://github.com/styraInc/load) fare here? Its memory savings are quite
+exceptional, but that doesn't necessarly mean faster in this context. Load uses an entirely different
+VM for evaluation, so the performance characteristics compared to OPA are reasonably different too.
+And wow, running the unoptimized `ast1.rego` file replacing OPA with Load shows 13 seconds saved!
+I suppose much of the manual unrolling of loops we've done here are handled by the Styra Load compiler,
+and the overhead of function calls simply isn't there.
 
 ```
 +----------------------------------+------------+
