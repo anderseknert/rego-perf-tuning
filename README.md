@@ -7,8 +7,12 @@ have used idiomatic constructs. The performance was however abysmal, clocking in
 evaluation at over 17 seconds! Not good for my purpose. What to do?
 
 Each incremental attempt to improve the performance of evaluation is here provided
-in `astX.rego`, where each increment is an improvement over the last. Each policy
-may be evaluated using the following series of commands:
+in `astX.rego`, where each increment is an improvement over the last.
+
+It should be noted: this is nowhere near a representative use case, but an interesting
+excersice nonetheless!
+
+Each policy may be evaluated using the following series of commands:
 
 ```shell
 time opa parse --format json --json-include locations p.rego | \
@@ -204,9 +208,11 @@ readable, but not terribly so. Lessons learnt:
 
 - Calling functions in a hot path is _expensive_
 - Moving conditional checks as far out of the loop as possible pays off
-- This is nowhere near a representative use case, but an interesting excersice nonetheless
+- Doing subtraction of 1 a 103822 times costs 146 milliseconds!
 
-But.. could we improve the performance of calling Rego functions?
+Both the cost of function calls and subtraction (or just arithmetic in general) could likely be
+improved in OPA. It's worth repeating though - none of these problems are likely going to have an
+impact on any real-world policy.
 
 ## Styra Load
 
