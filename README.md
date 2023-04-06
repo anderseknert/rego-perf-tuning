@@ -260,3 +260,23 @@ load eval -I -d ast7.rego --profile --format pretty   1.05s user 0.06s system 12
 We're now _almost_ below a second, but not quite. Styra Load is faster here too, but at this point
 it's probably difficult to shave off more than milliseconds, as by the end of the day, we do have a ton
 of instructions that'll need to be executed regardless of how it's done.
+
+## Addendum
+
+Some reviewers pointed out that the original policy tested was missing some destructuring constructs,
+like `some {"foo": bar} in [{"foo": "bar"}]`, or `[[a], b] := [...]`. The code has now been updated in
+the new `ast8.rego` file, covering those cases as well. While we need to leverage another `walk` call
+for this purpose, it luckily seems to have a negligible performance impact.
+
+I've also added a `p2.rego` containing updated testdata leveraging these nested constructs.
+
+Additionally, `find_vars` has been modified to no longer return wildcard vars (`_`).
+
+Finally, I've added a unit test in `ast_test.rego` to help assert that all expected vars are extracted.
+
+If you want to run the final policy and data:
+
+```shell
+time opa parse --format json --json-include locations p2.rego | \
+opa eval -I -d ast8.rego --profile --format pretty '_ = data.regal.ast.find_vars(input)'
+```
